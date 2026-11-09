@@ -126,6 +126,26 @@
     #result tr:nth-child(even) {
       background-color: #f7fafc;
     }
+
+    #tempToggle {
+      display: none;
+      margin-bottom: 16px;
+      text-align: right;
+    }
+
+    #tempToggleBtn {
+      padding: 6px 14px;
+      font-size: 0.9rem;
+      background-color: #fff;
+      color: #4299e1;
+      border: 1px solid #4299e1;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #tempToggleBtn:hover {
+      background-color: #ebf8ff;
+    }
   </style>
 </head>
 <body>
@@ -133,16 +153,23 @@
     <h1>🌤️ U.S. Weather Forecast</h1>
 
     <div class="input-row">
-      <input id="cityInput" type="text" placeholder="Enter a U.S. city name..." aria-label="City name">
+      <input id="cityInput" type="text" placeholder="Enter a U.S. city name..." aria-label="City name" onkeyup="if(event.key==='Enter') getWeather()">
       <button id="submitBtn" onclick="getWeather()">Get Forecast</button>
     </div>
 
     <div id="loading">Loading forecast...</div>
     <div id="error" role="alert"></div>
+    <div id="tempToggle">
+      <button id="tempToggleBtn" onclick="toggleUnit()">Switch to °C</button>
+    </div>
     <div id="result"></div>
   </div>
 
   <script>
+    var useFahrenheit = true;
+    var lastCity = '';
+    var lastPeriods = [];
+
     function getWeatherEmoji(shortForecast) {
       const f = shortForecast.toLowerCase();
       if (f.includes('thunderstorm')) return '⛈️';
@@ -161,6 +188,8 @@
       errorEl.textContent = message;
       errorEl.style.display = 'block';
       document.getElementById('result').innerHTML = '';
+      document.getElementById('tempToggle').style.display = 'none';
+      lastPeriods = [];
     }
 
     async function getNWSGridPoint(lat, lon) {
@@ -177,18 +206,32 @@
       };
     }
 
+    function toC(f) {
+      return Math.round((f - 32) * 5 / 9);
+    }
+
+    function toggleUnit() {
+      useFahrenheit = !useFahrenheit;
+      document.getElementById('tempToggleBtn').textContent = useFahrenheit ? 'Switch to °C' : 'Switch to °F';
+      if (lastPeriods.length > 0) {
+        renderForecast(lastCity, lastPeriods);
+      }
+    }
+
     function renderForecast(city, periods) {
+      var unit = useFahrenheit ? '°F' : '°C';
       let html = '<h2>Forecast for ' + city + '</h2>';
       html += '<table>';
-      html += '<thead><tr><th>Day</th><th>Icon</th><th>Temperature (°F)</th><th>Short Forecast</th></tr></thead>';
+      html += '<thead><tr><th>Day</th><th>Icon</th><th>Temperature (' + unit + ')</th><th>Short Forecast</th></tr></thead>';
       html += '<tbody>';
       for (let i = 0; i < periods.length; i++) {
         const period = periods[i];
         const emoji = getWeatherEmoji(period.shortForecast);
+        var temp = useFahrenheit ? period.temperature : toC(period.temperature);
         html += '<tr>';
         html += '<td>' + period.name + '</td>';
         html += '<td>' + emoji + '</td>';
-        html += '<td>' + period.temperature + ' °F</td>';
+        html += '<td>' + temp + ' ' + unit + '</td>';
         html += '<td>' + period.shortForecast + '</td>';
         html += '</tr>';
       }
@@ -244,6 +287,9 @@
         const { lat, lon } = await geocodeCity(city);
         const { gridId, gridX, gridY } = await getNWSGridPoint(lat, lon);
         const periods = await getNWSForecast(gridId, gridX, gridY);
+        lastCity = city;
+        lastPeriods = periods;
+        document.getElementById('tempToggle').style.display = 'block';
         renderForecast(city, periods);
       } catch (err) {
         showError(err.message);
