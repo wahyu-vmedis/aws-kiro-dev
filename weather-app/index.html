@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather App</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f4f8;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      color: #1a202c;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    #cityInput {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 1rem;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    #cityInput:focus {
+      border-color: #4299e1;
+      box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.3);
+    }
+
+    #submitBtn {
+      padding: 10px 20px;
+      font-size: 1rem;
+      background-color: #4299e1;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #submitBtn:hover {
+      background-color: #3182ce;
+    }
+
+    #loading {
+      display: none;
+      text-align: center;
+      color: #4a5568;
+      font-size: 1rem;
+      padding: 16px 0;
+    }
+
+    #error {
+      display: none;
+      background-color: #fff5f5;
+      border: 1px solid #fc8181;
+      color: #c53030;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      font-size: 0.95rem;
+    }
+
+    #result {
+      /* empty by default */
+    }
+
+    #result h2 {
+      font-size: 1.3rem;
+      color: #2d3748;
+      margin-bottom: 12px;
+    }
+
+    #result table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #fff;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    #result th {
+      background-color: #4299e1;
+      color: #fff;
+      text-align: left;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+    }
+
+    #result td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 0.95rem;
+      color: #2d3748;
+    }
+
+    #result tr:last-child td {
+      border-bottom: none;
+    }
+
+    #result tr:nth-child(even) {
+      background-color: #f7fafc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌤️ U.S. Weather Forecast</h1>
+
+    <div class="input-row">
+      <input id="cityInput" type="text" placeholder="Enter a U.S. city name..." aria-label="City name">
+      <button id="submitBtn" onclick="getWeather()">Get Forecast</button>
+    </div>
+
+    <div id="loading">Loading forecast...</div>
+    <div id="error" role="alert"></div>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    function getWeatherEmoji(shortForecast) {
+      const f = shortForecast.toLowerCase();
+      if (f.includes('thunderstorm')) return '⛈️';
+      if (f.includes('snow')) return '🌨️';
+      if (f.includes('rain') || f.includes('shower')) return '🌧️';
+      if (f.includes('fog') || f.includes('haze')) return '🌫️';
+      if (f.includes('windy')) return '💨';
+      if (f.includes('sunny') || f.includes('clear')) return '☀️';
+      if (f.includes('partly cloudy') || f.includes('mostly sunny')) return '⛅';
+      if (f.includes('cloudy') || f.includes('overcast')) return '☁️';
+      return '🌡️';
+    }
+
+    function showError(message) {
+      const errorEl = document.getElementById('error');
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+      document.getElementById('result').innerHTML = '';
+    }
+
+    async function getNWSGridPoint(lat, lon) {
+      const url = 'https://api.weather.gov/points/' + lat + ',' + lon;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('NWS grid lookup failed: ' + response.status + ' ' + response.statusText);
+      }
+      const data = await response.json();
+      return {
+        gridId: data.properties.gridId,
+        gridX: data.properties.gridX,
+        gridY: data.properties.gridY
+      };
+    }
+
+    function renderForecast(city, periods) {
+      let html = '<h2>Forecast for ' + city + '</h2>';
+      html += '<table>';
+      html += '<thead><tr><th>Day</th><th>Icon</th><th>Temperature (°F)</th><th>Short Forecast</th></tr></thead>';
+      html += '<tbody>';
+      for (let i = 0; i < periods.length; i++) {
+        const period = periods[i];
+        const emoji = getWeatherEmoji(period.shortForecast);
+        html += '<tr>';
+        html += '<td>' + period.name + '</td>';
+        html += '<td>' + emoji + '</td>';
+        html += '<td>' + period.temperature + ' °F</td>';
+        html += '<td>' + period.shortForecast + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('result').innerHTML = html;
+    }
+
+    async function geocodeCity(city) {
+      const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(city) + '&countrycodes=us&format=json&limit=1';
+      let response;
+      try {
+        response = await fetch(url);
+      } catch (err) {
+        throw new Error('Geocoding failed: ' + err.message);
+      }
+      if (!response.ok) {
+        throw new Error('Geocoding failed: ' + response.status + ' ' + response.statusText);
+      }
+      const data = await response.json();
+      if (!data || data.length === 0) {
+        throw new Error('City not found. Please try a different name.');
+      }
+      return { lat: data[0].lat, lon: data[0].lon };
+    }
+
+    async function getNWSForecast(gridId, gridX, gridY) {
+      const url = 'https://api.weather.gov/gridpoints/' + gridId + '/' + gridX + ',' + gridY + '/forecast';
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('NWS forecast fetch failed: ' + response.status + ' ' + response.statusText);
+      }
+      const data = await response.json();
+      return data.properties.periods.slice(0, 5);
+    }
+
+    async function getWeather() {
+      const city = document.getElementById('cityInput').value.trim();
+      if (!city) {
+        showError('Please enter a city name.');
+        return;
+      }
+
+      const loadingEl = document.getElementById('loading');
+      const errorEl = document.getElementById('error');
+      const resultEl = document.getElementById('result');
+
+      loadingEl.style.display = 'block';
+      errorEl.style.display = 'none';
+      errorEl.textContent = '';
+      resultEl.innerHTML = '';
+
+      try {
+        const { lat, lon } = await geocodeCity(city);
+        const { gridId, gridX, gridY } = await getNWSGridPoint(lat, lon);
+        const periods = await getNWSForecast(gridId, gridX, gridY);
+        renderForecast(city, periods);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        loadingEl.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
