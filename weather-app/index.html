@@ -240,7 +240,7 @@
     }
 
     async function geocodeCity(city) {
-      const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(city) + '&countrycodes=us&format=json&limit=1';
+      const url = 'https://geocoding.geo.census.gov/geocoder/locations/invalid' + encodeURIComponent(city) + '&countrycodes=us&format=json&limit=1';
       let response;
       try {
         response = await fetch(url);
