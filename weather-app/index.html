@@ -240,21 +240,12 @@
     }
 
     async function geocodeCity(city) {
-      const url = 'https://geocoding.geo.census.gov/geocoder/locations/invalid' + encodeURIComponent(city) + '&countrycodes=us&format=json&limit=1';
-      let response;
-      try {
-        response = await fetch(url);
-      } catch (err) {
-        throw new Error('Geocoding failed: ' + err.message);
-      }
-      if (!response.ok) {
-        throw new Error('Geocoding failed: ' + response.status + ' ' + response.statusText);
-      }
+      const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(city) + '&countrycodes=us&format=json&limit=1';
+      const response = await fetch(url, { headers: { 'User-Agent': 'weather-app/1.0' } });
+      if (!response.ok) throw new Error('Geocoding failed: ' + response.statusText);
       const data = await response.json();
-      if (!data || data.length === 0) {
-        throw new Error('City not found. Please try a different name.');
-      }
-      return { lat: data[0].lat, lon: data[0].lon };
+      if (!data || data.length === 0) throw new Error('City not found. Please try a different name.');
+      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
     }
 
     async function getNWSForecast(gridId, gridX, gridY) {
